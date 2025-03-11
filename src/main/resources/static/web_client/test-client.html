@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebAuthn Test</title>
+</head>
+<body>
+    <button onclick="performRegistration()">Register</button>
+    <button onclick="performLogin()">Login</button>
+
+    <button onclick="getExample()">Get protected example</button>
+
+    <script>
+        const API_BASE = 'http://localhost:8080'
+        const API_BASE_AUTH = `${API_BASE}/auth`
+        
+        // Helper functions
+        function base64urlToBuffer(base64url) {
+            const padding = '='.repeat((4 - (base64url.length % 4)) % 4)
+            const base64 = (base64url + padding)
+                .replace(/-/g, '+')
+                .replace(/_/g, '/')
+
+            const rawData = atob(base64)
+            return Uint8Array.from(rawData, c => c.charCodeAt(0))
+        }
+
+        function bufferToBase64url(buffer) {
+            const binary = String.fromCharCode(...new Uint8Array(buffer))
+            return btoa(binary)
+                .replace(/\+/g, '-')
+                .replace(/\//g, '_')
+                .replace(/=+$/, '')
+        }
+
+        async function performRegistration() {
+            const username = prompt('Enter username') || 'test-user'
+
+            try {
+                // 1. Start registration
+                const startResponse = await fetch(`${API_BASE_AUTH}/register/start?username=${username}`, {
+                    method: 'POST'
+                })
+                const startData = await startResponse.json()
+
+                // 2. Create credentials
+                const publicKey = {
+                    rp: { 
+                        id: "localhost",
+                        name: "Passkey Demo Kotlin" },
+                    user: {
+                        id: base64urlToBuffer(startData.user.id),
+                        name: username,
+                        displayName: username
+                    },
+                    challenge: base64urlToBuffer(startData.challenge),
+                    pubKeyCredParams: [{
+                        type: "public-key",
+                        alg: -7 // ES256
+                    }],
+                    authenticatorSelection: {
+                        userVerification: "required"
+                    },
+                    attestation: "direct"
+                }
+
+                // 3. Trigger browser dialog
+                const credential = await navigator.credentials.create({ publicKey })
+
+                // 4. Send to server
+                const response = await fetch(`${API_BASE_AUTH}/register/complete?username=${username}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        attestationObject: bufferToBase64url(credential.response.attestationObject),
+                        clientDataJSON: bufferToBase64url(credential.response.clientDataJSON)
+                    })
+                })
+
+                if (response.ok) alert('Registration successful!')
+            } catch (error) {
+                console.error('Registration failed:', error)
+                alert(`Error: ${error.message}`)
+            }
+        }
+        
+        async function performLogin() {
+            const username = prompt('Enter username') || 'test-user'
+            try {
+                // Start login
+                const startResponse = await fetch(`${API_BASE_AUTH}/login/start?username=${username}`, {
+                    method: 'POST'
+                })
+                const startData = await startResponse.json()
+
+                // Get credential
+                const publicKey = {
+                    challenge: base64urlToBuffer(startData.challenge),
+                    allowCredentials: startData.allowCredentials.map(cred => ({
+                        id: base64urlToBuffer(cred.id),
+                        type: cred.type,
+                        transports: cred.transports || []
+                    })),
+                    userVerification: "required"
+                }
+
+                const assertion = await navigator.credentials.get({ publicKey })
+                const clientDataJSON = new TextDecoder().decode(assertion.response.clientDataJSON)
+
+
+                // Finish login
+                const response = await fetch(`${API_BASE_AUTH}/login/complete?username=${username}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        credentialId: bufferToBase64url(assertion.rawId),
+                        clientDataJSON: bufferToBase64url(assertion.response.clientDataJSON),
+                        authenticatorData: bufferToBase64url(assertion.response.authenticatorData),
+                        signature: bufferToBase64url(assertion.response.signature),
+                        userHandle: assertion.response.userHandle ? bufferToBase64url(assertion.response.userHandle) : null
+                    })
+                })
+
+                const result = await response.json()
+                console.log('Login result:', result);
+                alert(`Login successful! Token: ${result.token}`)
+                // Store token for authenticated requests
+                localStorage.setItem('authToken', result.token)
+            } catch (error) {
+                alert(`Login failed: ${error.message}`)
+            }
+        }
+
+
+        async function getExample() {
+            try {
+                const response = await fetch(`${API_BASE}/example`, {
+                    method: 'GET',
+                    headers: {
+                      'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                    }
+                });
+
+                const result = await response.json()
+                console.log('Example result:', result);
+                alert(`Login result: ${result.status}! Hi ${result.username}`)
+
+            } catch (error) {
+                alert(`Login failed: ${error.message}`)
+            }
+        }
+    </script>
+</body>
+</html>

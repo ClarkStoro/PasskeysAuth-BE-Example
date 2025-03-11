@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  ktor-server:
+    build: .
+    container_name: my_passkeys_ktor_server
+    ports:
+      - "8080:8080"  # Mappa la porta 8080 del container sulla porta 8080 della tua macchina
+    environment:
+      - JAVA_OPTS=-Xms256m -Xmx512m  # Opzioni per configurare la memoria di Java (opzionale)
+    volumes:
+      - ./build/libs:/app/build/libs  # Monta il tuo file JAR se lo vuoi cambiare senza ricostruire l'immagine
+    restart: unless-stopped  # Riavvia il container se si ferma per errore

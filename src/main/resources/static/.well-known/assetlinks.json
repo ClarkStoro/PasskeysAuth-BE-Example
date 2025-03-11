@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls", "delegate_permission/common.get_login_creds"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.clarkstoro.passkeyauth_kmp_app_example",
+      "sha256_cert_fingerprints": [
+        "74:BD:83:D6:D4:0D:DB:79:62:DA:1B:6B:6B:CD:B9:48:77:8A:58:E9:19:A6:CE:45:B5:29:53:22:30:94:76:B8"
+      ]
+    }
+  }
+]

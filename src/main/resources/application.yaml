@@ -1,0 +1,12 @@
+ktor:
+    environment: "dev"
+    application:
+        modules:
+            - ApplicationKt.module
+    deployment:
+        port: 8080
+        host: 0.0.0.0
+jwt:
+  domain: "https://passkeysauth-be-example.onrender.com/"
+  audience: "default-audience"
+  realm: "Passkeys Ktor Demo"
