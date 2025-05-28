@@ -50,7 +50,6 @@ class AuthRepositoryImpl(
         private const val WEB_ORIGIN = "https://$RP_ID"
     }
 
-    private val random = SecureRandom()
     private val webAuthnManager = WebAuthnManager.createNonStrictWebAuthnManager()
 
     private val origins: Set<Origin> by lazy {
@@ -221,7 +220,7 @@ class AuthRepositoryImpl(
 
     private fun generateChallenge(): String {
         val bytes = ByteArray(32)
-        random.nextBytes(bytes)
+        SecureRandom().nextBytes(bytes)
         return String(Base64.getUrlEncoder().encode(bytes))
     }
 
