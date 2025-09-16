@@ -17,16 +17,16 @@ fun Route.protectedExampleRoutes(authRepository: AuthRepository) {
             val principal = call.principal<UserPrincipalDTO>()
             val user = authRepository.findUserById(principal?.userId.orEmpty())
             val fakeTodos = listOf(
-                TodoDTO(title = "Buy milk", description = "Go to the supermarket and get whole milk", done = false),
-                TodoDTO(title = "Clean the desk", description = "Organize documents and throw away unnecessary papers", done = true),
-                TodoDTO(title = "Call the mechanic", description = "Schedule a car service appointment", done = false),
-                TodoDTO(title = "Read a chapter of the book", description = "Continue reading the novel started", done = true),
-                TodoDTO(title = "Update CV", description = "Add recent projects and review the layout", done = false),
-                TodoDTO(title = "Book the flight", description = "Check for deals and purchase tickets", done = false),
-                TodoDTO(title = "Exercise", description = "30 minutes of bodyweight workout", done = true),
-                TodoDTO(title = "Renew gym membership", description = "Check annual offers", done = false),
-                TodoDTO(title = "Cook dinner", description = "Prepare pesto pasta with salad", done = true),
-                TodoDTO(title = "Write a new idea for the side project", description = "Note the idea in Notion", done = false)
+                TodoDTO(title = "🔐 Test Passkey Login", description = "Verify authentication works smoothly", done = true),
+                TodoDTO(title = "🎤 Prepare Demo Script", description = "Practice the presentation flow", done = true),
+                TodoDTO(title = "📱 Test on Multiple Devices", description = "Check iOS and Android compatibility", done = false),
+                TodoDTO(title = "✨ Polish UI Components", description = "Final touch-ups for Material 3 design", done = true),
+                TodoDTO(title = "🚀 Deploy Backend", description = "Ensure server is running for demo", done = false),
+                TodoDTO(title = "📊 Add Demo Analytics", description = "Track user interactions during presentation", done = false),
+                TodoDTO(title = "🛡️ Review Security Best Practices", description = "Double-check WebAuthn implementation", done = true),
+                TodoDTO(title = "🎯 Create Backup Demo Plan", description = "Prepare for potential technical issues", done = false),
+                TodoDTO(title = "📝 Update Documentation", description = "Add comments for code walkthrough", done = false),
+                TodoDTO(title = "🎨 Test Dark Mode Support", description = "Ensure UI works in both themes", done = false)
             )
             call.respond(
                 GetTodosResponseDTO(
