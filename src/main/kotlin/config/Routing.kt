@@ -23,6 +23,7 @@ fun Application.configureRouting() {
 
 object Params {
     const val USERNAME = "username"
+    const val SESSION_ID = "sessionId"
     const val STATUS = "status"
     const val IS_PROD = "isProd"
 }

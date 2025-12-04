@@ -13,8 +13,8 @@ interface AuthRepository {
     fun completeRegistration(username: String, request: CompleteRegistrationRequestDTO)
 
     // Login
-    fun startLogin(username: String): StartLoginResponseDTO
-    fun completeLogin(username: String, request: CompleteLoginRequestDTO): String
+    fun startLogin(): StartLoginResponseDTO
+    fun completeLogin(sessionId: String, request: CompleteLoginRequestDTO): String
 
     fun findUserById(id: String): User?
 }
