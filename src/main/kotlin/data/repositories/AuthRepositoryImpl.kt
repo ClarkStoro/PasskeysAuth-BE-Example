@@ -1,6 +1,7 @@
 package data.repositories
 
 import com.webauthn4j.WebAuthnManager
+import org.slf4j.LoggerFactory
 import com.webauthn4j.credential.CredentialRecord
 import com.webauthn4j.credential.CredentialRecordImpl
 import com.webauthn4j.data.AuthenticationParameters
@@ -31,6 +32,8 @@ class AuthRepositoryImpl(
     private val authDataSource: AuthDataSource,
     private val securityConfig: SecurityConfig
 ) : AuthRepository {
+
+    private val logger = LoggerFactory.getLogger(AuthRepositoryImpl::class.java)
 
     companion object {
         // Server configuration
@@ -102,6 +105,7 @@ class AuthRepositoryImpl(
     }
 
     override fun completeRegistration(username: String, request: CompleteRegistrationRequestDTO) {
+        logger.info("Verifying registration challenge")
         val challenge = authDataSource.getRegistrationChallenge(username)
             ?: throw IllegalArgumentException("No registration in progress")
 
@@ -125,6 +129,7 @@ class AuthRepositoryImpl(
             throw Exception("Missing origin: $parsedOrigin")
         }
 
+        logger.info("Verifying attestation")
         val registrationVerificationResult = webAuthnManager.verify(
             parsedRegistrationRequest,
             RegistrationParameters(
@@ -143,6 +148,7 @@ class AuthRepositoryImpl(
             )
         } ?: throw Exception("No attested credential data found")
 
+        logger.info("Saving credential to user")
         authDataSource.findUser(username)?.credentials?.add(credential)
     }
 
@@ -150,15 +156,14 @@ class AuthRepositoryImpl(
      * LOGIN
      */
 
-    override fun startLogin(username: String): StartLoginResponseDTO {
-        if (authDataSource.findUser(username) == null) {
-            throw IllegalArgumentException("User not found")
-        }
+    override fun startLogin(): StartLoginResponseDTO {
+        val sessionId = generateSessionId()
         val challenge = generateChallenge()
 
-        authDataSource.saveAuthenticationChallenge(username, challenge)
+        authDataSource.saveAuthenticationChallenge(sessionId, challenge)
 
         return StartLoginResponseDTO(
+            sessionId = sessionId,
             challenge = challenge,
             allowCredentials = emptyList(),
             timeout = LOGIN_TIMEOUT,
@@ -167,11 +172,20 @@ class AuthRepositoryImpl(
         )
     }
 
-    override fun completeLogin(username: String, request: CompleteLoginRequestDTO): String {
-        val challenge = authDataSource.getAuthenticationChallenge(username)
+    override fun completeLogin(sessionId: String, request: CompleteLoginRequestDTO): String {
+        logger.info("Verifying authentication challenge")
+        val challenge = authDataSource.getAuthenticationChallenge(sessionId)
             ?: throw IllegalArgumentException("No authentication in progress")
 
-        val user = authDataSource.findUser(username) ?: throw IllegalArgumentException("User not found")
+        // Try to find user by userHandle first, then fall back to credentialId
+        logger.info("Looking up user from credential")
+        val user = if (request.userHandle != null) {
+            authDataSource.findUserById(request.userHandle)
+                ?: authDataSource.findUserByCredentialId(request.credentialId)
+        } else {
+            authDataSource.findUserByCredentialId(request.credentialId)
+        } ?: throw IllegalArgumentException("User not found")
+
         val credential = user.credentials.find {
             Base64UrlUtil.encodeToString(it.attestedCredentialData.credentialId) == request.credentialId
         } ?: throw IllegalArgumentException("Unknown credential")
@@ -183,6 +197,7 @@ class AuthRepositoryImpl(
             null
         )
 
+        logger.info("Verifying WebAuthn signature")
         val parsedAuthenticationRequest = webAuthnManager.parse(
             com.webauthn4j.data.AuthenticationRequest(
                 Base64UrlUtil.decode(request.credentialId),
@@ -203,6 +218,7 @@ class AuthRepositoryImpl(
             )
         )
 
+        logger.info("Authentication verified, generating token")
         return securityConfig.createToken(user.id)
     }
 
@@ -215,13 +231,17 @@ class AuthRepositoryImpl(
         byteBuffer.putLong(uuid.mostSignificantBits)
         byteBuffer.putLong(uuid.leastSignificantBits)
         val uuidBytes = byteBuffer.array()
-        return String(Base64.getUrlEncoder().encode(uuidBytes))
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(uuidBytes)
     }
 
     private fun generateChallenge(): String {
         val bytes = ByteArray(32)
         SecureRandom().nextBytes(bytes)
         return String(Base64.getUrlEncoder().encode(bytes))
+    }
+
+    private fun generateSessionId(): String {
+        return UUID.randomUUID().toString()
     }
 
     private fun calculateAndroidOrigin(): Origin {
