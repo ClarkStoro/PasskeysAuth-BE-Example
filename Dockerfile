@@ -1,26 +1,32 @@
-# Stage 1: Cache Gradle dependencies
-FROM gradle:latest AS cache
-RUN mkdir -p /home/gradle/cache_home
-ENV GRADLE_USER_HOME=/home/gradle/cache_home
-COPY build.gradle.* gradle.properties /home/gradle/app/
-COPY gradle /home/gradle/app/gradle
-WORKDIR /home/gradle/app
-RUN gradle clean build -i --stacktrace
+# Simple single-stage build for Render.com
+FROM gradle:8-jdk17 AS build
 
-# Stage 2: Build Application
-FROM gradle:latest AS build
-COPY --from=cache /home/gradle/cache_home /home/gradle/.gradle
-COPY . /usr/src/app/
-WORKDIR /usr/src/app
-COPY --chown=gradle:gradle . /home/gradle/src
-WORKDIR /home/gradle/src
-# Build the fat JAR, Gradle also supports shadow
-# and boot JAR by default.
-RUN gradle buildFatJar --no-daemon
+# Set working directory
+WORKDIR /app
 
-# Stage 3: Create the Runtime Image
-FROM amazoncorretto:22 AS runtime
+# Copy project files
+COPY . .
+
+# Make gradlew executable
+RUN chmod +x ./gradlew
+
+# Build the application
+RUN ./gradlew buildFatJar --no-daemon --stacktrace
+
+# Runtime stage
+FROM amazoncorretto:17-alpine AS runtime
+
+# Set working directory
+WORKDIR /app
+
+# Copy the JAR file
+COPY --from=build /app/build/libs/*.jar app.jar
+
+# Expose port
 EXPOSE 8080
-RUN mkdir /app
-COPY --from=build /home/gradle/src/build/libs/*.jar /app/ktor-docker-sample.jar
-ENTRYPOINT ["java","-jar","/app/ktor-docker-sample.jar"]
+
+# Set environment variable for port (Render.com requirement)
+ENV PORT=8080
+
+# Run the application
+ENTRYPOINT ["java", "-jar", "app.jar"]
